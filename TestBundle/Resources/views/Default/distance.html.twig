@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title> Distance </title>
+        <link rel="stylesheet" href="{{ asset('css/app.css') }}" />
+        {% stylesheets '@DueDilTaskTestBundle/Resources/public/css/*' %}
+        <link href="{{ asset_url }}" type='text/css' rel="stylesheet" media='screen'/>
+        {% endstylesheets %}
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <p>
+                        This only works in one direction. Meaning: it finds a path between two usernames who own projects, and finds the path through the people who contributed to their project, not the other way around.
+                        </p>
+                    <form id="search-form"
+                        action="{{ path('due_dil_task_test_distance') }}" 
+                        method="post" {{ form_enctype(form) }}>
+                        {{ form_widget(form) }}
+
+                        <button type=submit" class="btn btn-default">Search</button>
+                    </form>
+                    <p id="path"> </p>
+                </div>
+                <div class="col-md-8">
+                    <div id="graph"></div>
+                </div>
+            </div>
+        </div>
+        <script src="{{ asset('js/app.js')}}"></script>
+        {% javascripts '@DueDilTaskTestBundle/Resources/public/js/*' %}
+        <script src="{{ asset_url }}"></script>
+        {% endjavascripts %}
+        <script>
+            var requestNumber = 1;
+            var usernameRequested = [];
+
+            var updateGraph = function(sp) {
+                return function(data) {
+                    var taskNodes = d3Obj.convertFromResponseToD3NodeList(data);
+                    sp.nodes = taskNodes.nodes;
+                    sp.paths = taskNodes.links;
+                    sp.drawGraph('#graph');
+                    //sp.updateGraph();//was having some issues with only updating
+                }
+            }
+
+            var infiniteSearch = function(sp,startNode,endNode) {
+                var nodes = sp.nodes;
+                for(var i = 0; i < nodes.length; i++) {
+                    var nodeType = nodes[i].type;
+                    var nodeName = nodes[i].name;
+                    var alreadyRequested = usernameRequested.contains(nodeName);
+                    if(nodeType == 'github' && !alreadyRequested) {
+                        usernameRequested.push(nodeName);
+
+                        var route = sp.findRouteByName(startNode,endNode);
+                        if(route.path) {
+                            var path = route.path;
+                            var pathArr = [nodes[path[0].source].name];
+                            for(var j = 0; j < path.length; ++j) {
+                                var pathPoint = path[j];
+                                var nameTarget = nodes[pathPoint.target].name;
+                                pathArr.push(nameTarget);
+                            }
+                            var pathStr = pathArr.join(' -> ');
+                            console.log(pathStr);
+                            $('#path').text(pathStr);
+                            sp.colorRoute();
+                            return;
+                        } else {
+                            var infoStr = 'making request number: ' + 
+                                (++requestNumber)+ ' - looking for: ' + nodeName;
+                            $('#path').text(infoStr);
+                            //didn't find a route, keep searching
+                            var getNode = $.get('/add-node/'+nodeName);
+                            //the promise avoids recursion
+                            getNode.done(updateGraph(sp))
+                            .done(function(){
+                                infiniteSearch(sp,startNode,endNode);
+                            });
+                        }
+
+                    }
+                }
+            }
+
+            var startGraph = function(data) {
+
+                // get field values to get the path origins
+                var nodeNameA = $('#{{form.username_a.vars.id}}').val();
+                var nodeNameB = $('#{{form.username_b.vars.id}}').val();
+                usernameRequested.push(nodeNameA,nodeNameB);
+                if(data.length === 0) return;
+                var taskNodes = d3Obj.convertFromResponseToD3NodeList(data);
+                //ShortestPathCalculator(taskNodes.nodes,taskNodes.links);
+                try {
+                var sp = d3Obj.createGraph(taskNodes);
+                sp.drawGraph('#graph');
+                } catch(err) {
+
+                $('#path').text('very bad error!');
+                    alert(
+                        'An exception occurred!' + 
+                        ' Might not have found one of the names! ' + err.message);
+                }
+                //not really infinite, just recursive (avoided due to the use of async)
+                infiniteSearch(sp,nodeNameA,nodeNameB);
+            }
+            // wrote this here to make sure it runs after the scripts have  been loaded
+            $("#search-form").submit(function(event) {
+                requestNumber = 1;
+                $('#path').text('loading...');
+
+                event.preventDefault();
+
+                // get form
+                var $form = $( this ),
+                url = $form.attr( 'action' );
+
+                // send data
+                var formData = $form.serialize();
+                var postResult = $.ajax({
+                    type: 'POST',
+                    url: $form.attr('action'),
+                    data: formData
+                });
+
+                postResult.done(startGraph);
+            });
+        </script>
+    </body>
+</html>

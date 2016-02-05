@@ -1,0 +1,15 @@
+due_dil_task_test_homepage:
+    path:     /hello/{name}
+    defaults: { _controller: DueDilTaskTestBundle:Default:index }
+
+due_dil_task_test_add_node:
+    path:     /add-node/{username}
+    defaults: { _controller: DueDilTaskTestBundle:Default:addNodeUsername }
+
+due_dil_task_test_get_nodes:
+    path:     /nodes
+    defaults: { _controller: DueDilTaskTestBundle:Default:getNodes }
+
+due_dil_task_test_distance:
+    path:     /distance
+    defaults: { _controller: DueDilTaskTestBundle:Default:graphDistance }

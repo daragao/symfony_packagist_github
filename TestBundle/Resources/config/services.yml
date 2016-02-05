@@ -1,0 +1,4 @@
+services:
+#    due_dil_task_test.example:
+#        class: DueDilTask\TestBundle\Example
+#        arguments: [@service_id, "plain_value", %parameter%]
